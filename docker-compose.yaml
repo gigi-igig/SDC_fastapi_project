@@ -1,0 +1,97 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:13
+    container_name: sdc_postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: fastapi
+    networks:
+      - intranet
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  test:
+    build: .  # 使用相同的 build 設定
+    container_name: sdc_fastapi_test
+    depends_on:
+      - postgres
+      - app  # 確保 app 服務已啟動
+    networks:
+      - intranet
+    volumes:
+      - ./app:/code/app  # 載入測試目錄
+    environment:
+      - ENV=testing  # 測試環境變數
+
+  mariadb:
+    image: mariadb:10.6
+    container_name: sdc_mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+    networks:
+      - intranet
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  pgadmin4:
+    image: dpage/pgadmin4
+    container_name: sdc_pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=user@example.com
+      - PGADMIN_DEFAULT_PASSWORD=password
+    networks:
+      - intranet
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+  phpmyadmin:
+    image: phpmyadmin
+    container_name: sdc_phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: mariadb
+      MYSQL_ROOT_PASSWORD: rootpassword
+    networks:
+      - intranet
+    ports:
+      - "8081:80"
+    depends_on:
+      - mariadb
+
+  app:
+    build: ./
+    container_name: sdc_fastapi_app
+    restart: always
+    networks:
+      - intranet
+    volumes:
+      - ./app:/code/app
+    ports:
+      - "8080:8000"
+
+
+  ollama:
+    image: ollama/ollama:latest  # 使用 Ollama 的 Docker 映像檔
+    container_name: ollama_container
+    restart: always
+    networks:
+      - intranet
+    ports:
+      - "11434:11434"  # Ollama 服務的預設端口
+    command: serve
+
+networks:
+  intranet:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mariadb_data:
