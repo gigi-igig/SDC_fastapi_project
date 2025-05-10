@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Literal
 from datetime import datetime
 import re
@@ -24,7 +24,8 @@ class SessionData(SessionResponse):
 class CreateSessionRequest(BaseModel):
     title: str = Field(..., min_length=3, max_length=30)
 
-    @validator("title")
+    @field_validator("title")
+    @classmethod
     def validate_title(cls, v):
         if not re.match(r"^[A-Za-z0-9]+$", v):
             raise ValueError("Title must contain only letters and numbers.")
