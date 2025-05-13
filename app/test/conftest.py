@@ -15,7 +15,7 @@ def session_fixture():
         f"@{settings.test_postgres_host}:{settings.test_postgres_port}/{settings.test_postgres_db}"
     )
     test_engine = create_engine(TEST_DATABASE_URL)
-    init_db(custom_engine=test_engine, dropFirst=True)
+    init_db(custom_engine=test_engine, drop_first=True)
     with Session(test_engine) as session:
         yield session
 

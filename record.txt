@@ -1,0 +1,54 @@
+docker-compose up -d
+docker exec -it ollama_container ollama pull phi3
+docker-compose down
+
+http://localhost:8080/docs#/default/chat_with_model_chat__post
+
+{
+  "model": "phi3",  
+  "messages": [
+    {"role": "user", "content": "Hello, how are you?"}
+  ],
+  "stream": false
+}
+
+docker exec -it sdc_fastapi_test sh  
+pytest -v test/test_chat.py
+
+Invoke-WebRequest -Uri http://localhost:11434/api/chat `
+  -Method POST `
+  -Headers @{ "Content-Type" = "application/json" } `
+  -Body '{
+    "model": "phi3",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "stream": false
+  }'
+
+docker-compose down --rmi all  # 若是使用 docker-compose
+docker build --no-cache -t your-image-name .  # 重新構建 Docker 映像
+
+
+[使用者輸入訊息]
+        ↓
+  POST /messages/   ← 儲存使用者訊息到 DB
+        ↓
+  撈出目前聊天室所有訊息（GET /messages/?session_id=X）
+        ↓
+  POST /chat        ← 把整段對話送去 AI 模型，取得回覆
+        ↓
+  POST /messages/   ← 儲存 AI 回覆到 DB
+        ↓
+[畫面更新，顯示使用者 + AI 對話]
+
+
+{
+  "content": "Hi",
+  "role": "user", 
+  "session_id": 1
+}
+
+{
+  "content": "Hello! How can I help you today?",
+  "role": "assistant",
+  "session_id": 1
+}
