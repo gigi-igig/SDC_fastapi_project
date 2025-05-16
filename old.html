@@ -29,7 +29,7 @@
         <h3 id="sessionTitle">No session selected</h3>
         <div>
             <input id="editTitle" placeholder="Edit title..." />
-            <button onclick="updateTitle()">✏️ Save</button>
+            <button onclick="updateTitle()">✏️ Update Title</button>
             <button onclick="deleteSession()">🗑️ Delete</button>
         </div>
 
@@ -60,35 +60,69 @@
             document.getElementById("sessionTitle").textContent = title;
             document.getElementById("editTitle").value = title;
 
-            const res = await fetch(`/sessions/${id}`);
-            const data = await res.json();
-            const history = JSON.parse(data.messages || "[]");
+            // 從 /messages?session_id=id 讀取所有歷史訊息
+            const res = await fetch(`/messages?session_id=${id}`);
+            const messages = await res.json();
+
             const chatDiv = document.getElementById("chatHistory");
             chatDiv.innerHTML = "";
 
-            history.forEach(msg => appendMessage(msg.role, msg.content));
+            messages.forEach(msg => appendMessage(msg.role, msg.content));
         }
+
 
         function appendMessage(role, content) {
             const chatDiv = document.getElementById("chatHistory");
-            const p = document.createElement("p");
-            p.className = `message ${role}`;
-            p.innerHTML = `<strong>${role}:</strong> ${content}`;
-            chatDiv.appendChild(p);
+            const div = document.createElement("div");
+
+            if (role === "user") {
+                div.className = "user-msg";
+                div.textContent = `User: ${content}`;
+            } else if (role === "assistant") {
+                div.className = "assistant-msg";
+                div.textContent = `Assistant: ${content}`;
+            } else if (role === "loading") {
+                div.className = "loading-msg";
+                div.innerHTML = `<span id="${content.id}">🤖 ${content.text}</span>`;
+            }
+
+            chatDiv.appendChild(div);
             chatDiv.scrollTop = chatDiv.scrollHeight;
         }
+
 
         async function createSession() {
             const title = document.getElementById("newTitle").value.trim();
             if (!title) return alert("Title required!");
-            await fetch("/sessions", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title })
-            });
-            document.getElementById("newTitle").value = "";
-            loadSessions();
+
+            try {
+                const res = await fetch("/sessions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ title })
+                });
+
+                if (res.status === 422) {
+                    const error = await res.json();
+                    const detail = error.detail?.[0]?.msg || "Invalid input";
+                    alert(`❌ Validation Error:\n${detail}`);
+                    return;
+                }
+
+                if (!res.ok) {
+                    const text = await res.text();
+                    alert(`❌ Server Error ${res.status}:\n${text}`);
+                    return;
+                }
+
+                document.getElementById("newTitle").value = "";
+                loadSessions();
+            } catch (err) {
+                console.error("Unexpected error:", err);
+                alert("❌ Unexpected error occurred.");
+            }
         }
+
 
         async function deleteSession() {
             if (!selectedSessionId) return alert("Select a session first!");
@@ -102,11 +136,25 @@
         async function updateTitle() {
             const newTitle = document.getElementById("editTitle").value.trim();
             if (!selectedSessionId || !newTitle) return;
-            await fetch(`/sessions/${selectedSessionId}`, {
+
+            const res = await fetch(`/sessions/${selectedSessionId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ title: newTitle })
             });
+
+            if (res.status === 422) {
+                const error = await res.json();
+                const detail = error.detail?.[0]?.msg || "Invalid input";
+                alert(`❌ Validation Error:\n${detail}`);
+                return;
+            }
+
+            if (!res.ok) {
+                alert(`❌ Server Error ${res.status}`);
+                return;
+            }
+
             loadSessions();
         }
 
@@ -120,7 +168,7 @@
             msgInput.value = "";
 
             const loadingId = "loading-" + Date.now();
-            appendMessage("loading", `<span id="${loadingId}">🤖 Thinking...</span>`);
+            appendMessage("loading", { id: loadingId, text: "Thinking..." });
 
             try {
                 const res = await fetch(`/chat?session_id=${selectedSessionId}`, {

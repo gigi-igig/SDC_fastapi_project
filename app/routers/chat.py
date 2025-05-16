@@ -27,6 +27,8 @@ async def chat_with_model(
         history = message_service.get_messages(session_id)
         history_messages = [ChatResponse(role=msg.role, content=msg.content) for msg in history]
         all_messages = history_messages + body.messages
+    else:
+        all_messages = body.messages
 
     payload = {
         "model": body.model,

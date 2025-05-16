@@ -52,3 +52,20 @@ docker build --no-cache -t your-image-name .  # 重新構建 Docker 映像
   "role": "assistant",
   "session_id": 1
 }
+
+{
+    "model": "phi3",
+    "created_at": "2025-05-14T11:54:24.335045912Z",
+    "message": {
+        "role": "assistant",
+        "content": "Hi there! How can I help you today?"
+    },
+    "done_reason": "stop",
+    "done": true,
+    "total_duration": 1276691688,
+    "load_duration": 6456342,
+    "prompt_eval_count": 10,
+    "prompt_eval_duration": 141227931,
+    "eval_count": 11,
+    "eval_duration": 1127849669
+}

@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException
-from typing import Annotated, List, Dict
+from typing import Annotated, List
 from dependencies.DBSession import SessionDep
 from model.SessionDAL import (
     create_session as create_dal,
@@ -9,7 +9,7 @@ from model.SessionDAL import (
     delete_session as delete_dal,
 )
 from model.error import DBItemNotFound
-from model.Interfaces import CreateSessionRequest, ChatResponse
+from model.Interfaces import CreateSessionRequest
 from model.Sessions import SessionModel
 from utils.CommonQueryParam import RangeQueryParameter
 

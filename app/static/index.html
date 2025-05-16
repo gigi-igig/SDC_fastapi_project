@@ -14,6 +14,12 @@
         .assistant { color: green; }
         .loading { color: gray; font-style: italic; }
         #chatHistory { border:1px solid #ccc; padding:10px; height:300px; overflow:auto; background: #f9f9f9; }
+        
+        .session-item.selected {
+            background-color: #d0ebff;
+            font-weight: bold;
+        }
+
     </style>
 </head>
 <body>
@@ -39,7 +45,7 @@
     </div>
 
     <script>
-        let selectedSessionId = null;
+        let currentSelectedSessionId = null;
 
         async function loadSessions() {
             const res = await fetch("/sessions");
@@ -50,26 +56,56 @@
                 const li = document.createElement("li");
                 li.className = "session-item";
                 li.textContent = sess.title;
-                li.onclick = () => selectSession(sess.id, sess.title);
+                li.onclick = () => selectSession(sess.id, sess.title, li);
                 list.appendChild(li);
             });
         }
 
-        async function selectSession(id, title) {
-            selectedSessionId = id;
-            document.getElementById("sessionTitle").textContent = title;
-            document.getElementById("editTitle").value = title;
-
-            // 從 /messages?session_id=id 讀取所有歷史訊息
-            const res = await fetch(`/messages?session_id=${id}`);
-            const messages = await res.json();
-
+        async function selectSession(id, title, liElement) {
             const chatDiv = document.getElementById("chatHistory");
-            chatDiv.innerHTML = "";
+            const sessionTitleElem = document.getElementById("sessionTitle");
+            const editTitleInput = document.getElementById("editTitle");
 
-            messages.forEach(msg => appendMessage(msg.role, msg.content));
+            // 如果點到的是目前選取的 session，取消選取 → 變成臨時對話
+            if (currentSelectedSessionId === id) {
+                currentSelectedSessionId = null;
+                sessionTitleElem.textContent = "臨時對話";
+                editTitleInput.value = "";
+                chatDiv.innerHTML = "";
+                
+                // 移除所有 li 的 .selected 樣式
+                document.querySelectorAll(".session-item").forEach(li => {
+                    li.classList.remove("selected");
+                });
+
+                return;
+            }
+
+            // 更新目前選擇的 session
+            currentSelectedSessionId = id;
+            sessionTitleElem.textContent = title;
+            editTitleInput.value = title;
+
+            // 清除舊的 .selected 樣式
+            document.querySelectorAll(".session-item").forEach(li => {
+                li.classList.remove("selected");
+            });
+
+            // 加上目前 li 的 .selected 樣式
+            liElement.classList.add("selected");
+
+            // 載入歷史訊息
+            try {
+                const res = await fetch(`/messages?session_id=${id}`);
+                const messages = await res.json();
+
+                chatDiv.innerHTML = "";
+                messages.forEach(msg => appendMessage(msg.role, msg.content));
+            } catch (error) {
+                console.error("讀取歷史訊息錯誤：", error);
+                chatDiv.innerHTML = "<p>⚠️ 無法載入歷史訊息</p>";
+            }
         }
-
 
         function appendMessage(role, content) {
             const chatDiv = document.getElementById("chatHistory");
@@ -90,23 +126,42 @@
             chatDiv.scrollTop = chatDiv.scrollHeight;
         }
 
-
         async function createSession() {
             const title = document.getElementById("newTitle").value.trim();
             if (!title) return alert("Title required!");
-            await fetch("/sessions", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title })
-            });
-            document.getElementById("newTitle").value = "";
-            loadSessions();
+
+            try {
+                const res = await fetch("/sessions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ title })
+                });
+
+                if (res.status === 422) {
+                    const error = await res.json();
+                    const detail = error.detail?.[0]?.msg || "Invalid input";
+                    alert(`❌ Validation Error:\n${detail}`);
+                    return;
+                }
+
+                if (!res.ok) {
+                    const text = await res.text();
+                    alert(`❌ Server Error ${res.status}:\n${text}`);
+                    return;
+                }
+
+                document.getElementById("newTitle").value = "";
+                loadSessions();
+            } catch (err) {
+                console.error("Unexpected error:", err);
+                alert("❌ Unexpected error occurred.");
+            }
         }
 
         async function deleteSession() {
-            if (!selectedSessionId) return alert("Select a session first!");
-            await fetch(`/sessions/${selectedSessionId}`, { method: "DELETE" });
-            selectedSessionId = null;
+            if (!currentSelectedSessionId) return alert("Select a session first!");
+            await fetch(`/sessions/${currentSelectedSessionId}`, { method: "DELETE" });
+            currentSelectedSessionId = null;
             loadSessions();
             document.getElementById("chatHistory").innerHTML = "";
             document.getElementById("sessionTitle").textContent = "No session selected";
@@ -114,59 +169,77 @@
 
         async function updateTitle() {
             const newTitle = document.getElementById("editTitle").value.trim();
-            if (!selectedSessionId || !newTitle) return;
-            await fetch(`/sessions/${selectedSessionId}`, {
+            if (!currentSelectedSessionId || !newTitle) return;
+
+            const res = await fetch(`/sessions/${currentSelectedSessionId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ title: newTitle })
             });
+
+            if (res.status === 422) {
+                const error = await res.json();
+                const detail = error.detail?.[0]?.msg || "Invalid input";
+                alert(`❌ Validation Error:\n${detail}`);
+                return;
+            }
+
+            if (!res.ok) {
+                alert(`❌ Server Error ${res.status}`);
+                return;
+            }
+
             loadSessions();
         }
 
         async function sendMessage() {
-            const msgInput = document.getElementById("userMessage");
-            const msg = msgInput.value.trim();
-            if (!selectedSessionId) return alert("Please select a session first.");
-            if (!msg) return alert("Message cannot be empty.");
+            const msg = document.getElementById("userMessage").value.trim();
+            if (!msg) return;
 
+            const isTempMode = !currentSelectedSessionId;
             appendMessage("user", msg);
-            msgInput.value = "";
+            document.getElementById("userMessage").value = "";
 
-            const loadingId = "loading-" + Date.now();
-            appendMessage("loading", { id: loadingId, text: "Thinking..." });
+            const endpoint = isTempMode
+                ? "/chat"
+                : `/chat?session_id=${currentSelectedSessionId}`;
+
+            const payload = {
+                model: "phi3",
+                stream: false,
+                messages: [{ role: "user", content: msg }]
+            };
+
+            // 🔽 加入「載入中」訊息提示
+            const loadingId = `loading-${Date.now()}`;
+            appendMessage("loading", { id: loadingId, text: "Assistant is thinking..." });
 
             try {
-                const res = await fetch(`/chat?session_id=${selectedSessionId}`, {
+                const res = await fetch(endpoint, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        model: "phi3",
-                        stream: false,
-                        messages: [{ role: "user", content: msg }]  // ✅ List[ChatResponse]
-                    })
+                    body: JSON.stringify(payload)
                 });
-
-                // 移除 loading 提示
-                document.getElementById(loadingId)?.remove();
-
-                if (!res.ok) {
-                    const errorText = await res.text();
-                    console.error("Server error:", errorText);
-                    alert(`❌ Server Error ${res.status}:\n${errorText}`);
-                    return;
-                }
 
                 const result = await res.json();
                 const assistantMsg = result?.message?.content || result?.choices?.[0]?.message?.content || "(No response)";
-                appendMessage("assistant", assistantMsg);
 
-            } catch (err) {
-                document.getElementById(loadingId)?.remove();
-                console.error("Unexpected error:", err);
-                alert("❌ Unexpected error occurred. See console for details.");
+                // 🔽 用實際回應內容替換「載入中」提示
+                const loadingElem = document.getElementById(loadingId);
+                if (loadingElem) {
+                    loadingElem.textContent = `Assistant: ${assistantMsg}`;
+                    loadingElem.className = "assistant-msg";
+                }
+
+            } catch (error) {
+                console.error("發送失敗", error);
+                const loadingElem = document.getElementById(loadingId);
+                if (loadingElem) {
+                    loadingElem.textContent = "⚠️ 錯誤：無法取得回應。";
+                    loadingElem.className = "assistant-msg";
+                }
             }
         }
-
 
         loadSessions();
     </script>
