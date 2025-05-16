@@ -32,7 +32,7 @@
     </div>
 
     <div id="chat">
-        <h3 id="sessionTitle">No session selected</h3>
+        <h3 id="sessionTitle">臨時對話</h3>
         <div>
             <input id="editTitle" placeholder="Edit title..." />
             <button onclick="updateTitle()">✏️ Update Title</button>
@@ -164,7 +164,7 @@
             currentSelectedSessionId = null;
             loadSessions();
             document.getElementById("chatHistory").innerHTML = "";
-            document.getElementById("sessionTitle").textContent = "No session selected";
+            document.getElementById("sessionTitle").textContent = "臨時對話";
         }
 
         async function updateTitle() {

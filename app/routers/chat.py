@@ -5,9 +5,9 @@ from typing import List, Optional
 from model.Interfaces import ChatResponse, ChatRequest,CreateMessageRequest
 from dependencies.SessionData import SessionServiceDep
 from dependencies.MessageData import MessageServiceDep
+from dependencies.ChatService import ChatServiceDep
 import httpx
-import asyncio
-import json
+
 
 router = APIRouter(prefix="/chat")
 
@@ -17,6 +17,7 @@ async def chat_with_model(
     body: ChatRequest,
     service: SessionServiceDep,
     message_service: MessageServiceDep,
+    chat_service: ChatServiceDep,
     session_id: Optional[int] = Query(default=None),
 ):
     if session_id:
@@ -30,52 +31,42 @@ async def chat_with_model(
     else:
         all_messages = body.messages
 
-    payload = {
-        "model": body.model,
-        "messages": [msg.to_dict() for msg in all_messages],
-        "stream": body.stream,
-    }
-
+    # 2. 呼叫 ChatService 與 Ollama 互動
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post("http://ollama:11434/api/chat", json=payload)
+        if body.stream:
+            # 串流回應
+            return await chat_service.chat_stream(
+                model=body.model,
+                messages=all_messages,
+            )
+        else:
+            # 非串流回應
+            result = await chat_service.chat(
+                model=body.model,
+                messages=all_messages,
+            )
 
-            if resp.status_code == 400:
-                raise HTTPException(status_code=400, detail="Model not found or not loaded.")
-            elif resp.status_code != 200:
-                raise HTTPException(status_code=resp.status_code, detail="Ollama server error.")
+            assistant_msg = result.get("message")
 
-            if body.stream:
-                async def stream_response():
-                    async for line in resp.aiter_lines():
-                        if line.strip():
-                            yield f"{line}\n"
-                return StreamingResponse(stream_response(), media_type="application/x-ndjson")
-            else:
-                try:
-                    result = resp.json() #"object dict can't be used in 'await' expression\"
-                except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Failed to parse JSON: {repr(e)}")
-                assistant_msg = result.get("message")
-
-                
-                if session_id and assistant_msg:
-                    for msg in body.messages:
-                        user_msg = CreateMessageRequest(
-                            content=msg.content,
-                            role=msg.role,
-                            session_id=session_id
-                        )
-                        message_service.add_message(user_msg)
-                    message_to_add = CreateMessageRequest(
-                        content=assistant_msg["content"],
-                        role=assistant_msg.get("role", "assistant"),
+            # 3. 若有 session_id，將 user 訊息和 assistant 回覆存入 DB
+            if session_id and assistant_msg:
+                for msg in body.messages:
+                    user_msg = CreateMessageRequest(
+                        content=msg.content,
+                        role=msg.role,
                         session_id=session_id
                     )
-                    message_service.add_message(message_to_add)
-                
+                    message_service.add_message(user_msg)
 
-                return JSONResponse(content=result)
+                message_to_add = CreateMessageRequest(
+                    content=assistant_msg["content"],
+                    role=assistant_msg.get("role", "assistant"),
+                    session_id=session_id
+                )
+                message_service.add_message(message_to_add)
 
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=404, detail=f"Error communicating with Ollama server: {repr(e)}")
+            return JSONResponse(content=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat service error: {repr(e)}")
