@@ -12,15 +12,16 @@ Ensure you have the following software installed:
 ## Project Structure
 The project adopts a **modular structure**, with the following key components:
 ```
-fastapi-env/
+root/
 │── requirements.txt   # Python dependencies for FastAPI
 │── Dockerfile         # Docker image configuration for FastAPI application
 │── docker-compose.yaml # Docker Compose setup
 │── app/               # FastAPI application source code
 │   ├── main.py        # Main FastAPI application
-│   ├── chat.py        # Chat handling router
-│   ├── session.py     # Session management router
-│   ├── message.py     # Message management router
+│   ├── routers/      
+│   │   ├── chat.py        # Chat handling router
+│   │   ├── session.py     # Session management router
+│   │   ├── message.py     # Message management router
 │   ├── services/      # Application service layer
 │   │   ├── chat_service.py
 │   │   ├── session_service.py
