@@ -1,72 +1,88 @@
-# FastAPI Environment
+# AI Web Chatbot - FastAPI Environment
 
-This project is designed specifically for programs related to FastAPI. It aims to allow students to focus on learning FastAPI without worrying about environment setup. The project includes the necessary configurations and dependencies to start quickly and easily.
+## Project Overview
+This project is specifically designed for **FastAPI applications**, providing students with a **streamlined development environment** so they can focus on learning **FastAPI** without worrying about setup configurations.  
+It includes the necessary **dependencies** and **services**, making the development process faster and more intuitive.
 
 ## Prerequisites
-
-Make sure you have the following software installed on your machine:
-
-- Git
-- Docker Desktop or Docker Engine
+Ensure you have the following software installed:
+- **Git**
+- **Docker Desktop** or **Docker Engine**
 
 ## Project Structure
+The project adopts a **modular structure**, with the following key components:
+```
+fastapi-env/
+│── requirements.txt   # Python dependencies for FastAPI
+│── Dockerfile         # Docker image configuration for FastAPI application
+│── docker-compose.yaml # Docker Compose setup
+│── app/               # FastAPI application source code
+│   ├── main.py        # Main FastAPI application
+│   ├── chat.py        # Chat handling router
+│   ├── session.py     # Session management router
+│   ├── message.py     # Message management router
+│   ├── services/      # Application service layer
+│   │   ├── chat_service.py
+│   │   ├── session_service.py
+│   │   ├── message_service.py
+│   ├── database/      # Data access layer (DAL)
+│   │   ├── session_dal.py
+│   │   ├── message_dal.py
+```
 
-The project is structured as follows:
+## Setup & Execution
+Follow these steps to set up and run the project:
 
-- `requirements.txt`: Lists the Python dependencies required for the project.
-- `Dockerfile`: Contains the instructions to build the Docker image for the FastAPI application.
-- `docker-compose.yaml`: Defines the services and configurations for running the project using Docker Compose.
-- `app/`: Directory containing the FastAPI application code.
+1. **Clone the repository**
+   ```bash
+   git clone <repository_url>
+   cd <repository_directory>
+   ```
 
-## Setup Instructions
+2. **Start the application using Docker Compose**
+   ```bash
+   docker-compose up --build -d
+   ```
 
-1. **Clone the repository**:
-    ```bash
-    git clone <repository_url>
-    cd <repository_directory>
-    ```
+3. **Build the Hello World FastAPI application**
+   - Create `fastapi-env/app/main.py`
+   - Add the following FastAPI base code:
+   ```python
+   from fastapi import FastAPI
 
-2. **Build and start the application using Docker Compose**:
-    ```bash
-    docker-compose up --build -d
-    ```
+   app = FastAPI()
 
-3. **Build Hello World App**:
-- Create a directory `fastapi-env/app`
-- Create a file `app/main.py`
-- Paste Hello World code.
-    ```python
-    from fastapi import FastAPI
+   @app.get("/")
+   async def root():
+       return {"message": "Hello World"}
+   ```
+   - Start the FastAPI application and access it at:  
+     **`http://localhost:8080`**
 
-    app = FastAPI()
+## Docker Configuration (Dockerfile)
+The Dockerfile configures the **FastAPI environment**, including the following steps:
+- Uses the official Python base image
+- Sets the working directory
+- Copies necessary files
+- Installs Python dependencies
+- Specifies the application startup command
 
+## Docker Compose (docker-compose.yaml)
+The `docker-compose.yaml` file defines **FastAPI services**, including:
+- **FastAPI application service** (built from the Dockerfile)
+- **Environment variables and port mapping**
+- **PostgreSQL database service** and **PGAdmin4 management tool**
 
-    @app.get("/")
-    async def root():
-        return {"message": "Hello World"}
-    ```
-
-4. **Access the FastAPI application**:
-    The FastAPI application will be available at `http://localhost:8080`.
-
-## Dockerfile
-
-The `Dockerfile` sets up the environment for the FastAPI application. It includes the following key steps:
-
-- Use an official Python base image.
-- Set the working directory.
-- Copy the necessary files.
-- Install the required Python packages.
-- Specify the command to run the FastAPI application.
-
-## Docker Compose
-
-The `docker-compose.yaml` file defines the services required for the application. It includes:
-
-- The FastAPI service, built from the Dockerfile.
-- Configuration for environment variables and port mappings.
-- PostgreSQL database service and PGAdmin4.
-
-## Contact
-
-For any questions or issues, please contact the project maintainer at [nycu1sdc@gmail.com](mailto:nycu1sdc@gmail.com).
+## API Routing Overview
+This project provides an **Ollama API** to enable chatbot **message management**:
+- **Session**
+  - `POST /sessions/` ➝ Create a new session
+  - `GET /sessions/?session_id=X` ➝ Retrieve specific session details
+  - `PUT /sessions/{id}` ➝ Modify session title
+  - `DELETE /sessions/{id}` ➝ Delete session
+- **Message**
+  - `POST /messages/` ➝ Add a message (requires valid session)
+  - `GET /messages/?session_id=X` ➝ List all messages for the specified session
+- **Chat**
+  - `POST /chat/` ➝ Interact with the chatbot
+  - `GET /chat/stream=True` ➝ Receive responses in streaming mode
