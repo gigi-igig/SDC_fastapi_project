@@ -15,18 +15,32 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  postgres_test:
+    image: postgres:13
+    container_name: sdc_postgres_test
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: fastapi_test
+    networks:
+      - intranet
+    ports:
+      - "5433:5432"  # 修改端口，避免與正式資料庫端口衝突
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+
   test:
-    build: .  # 使用相同的 build 設定
+    build: .
     container_name: sdc_fastapi_test
     depends_on:
-      - postgres
-      - app  # 確保 app 服務已啟動
+      - postgres_test
+      - app
     networks:
       - intranet
     volumes:
-      - ./app:/code/app  # 載入測試目錄
+      - ./app:/code/app
     environment:
-      - ENV=testing  # 測試環境變數
+      - ENV=testing
 
   mariadb:
     image: mariadb:10.6
@@ -67,8 +81,10 @@ services:
       - mariadb
 
   app:
-    build: ./
+    build: ./  
     container_name: sdc_fastapi_app
+    environment:
+      - OLLAMA_URL=http://ollama:11434
     restart: always
     networks:
       - intranet
@@ -77,16 +93,16 @@ services:
     ports:
       - "8080:8000"
 
-
   ollama:
-    image: ollama/ollama:latest  # 使用 Ollama 的 Docker 映像檔
+    image: ollama/ollama:latest
     container_name: ollama_container
     restart: always
     networks:
       - intranet
     ports:
-      - "11434:11434"  # Ollama 服務的預設端口
-    command: serve
+      - "11434:11434"
+    command: "serve"
+
 
 networks:
   intranet:
@@ -94,4 +110,5 @@ networks:
 
 volumes:
   postgres_data:
+  postgres_test_data:
   mariadb_data:

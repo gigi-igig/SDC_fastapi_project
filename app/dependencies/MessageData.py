@@ -20,3 +20,4 @@ def get_message_service(session: SessionDep) -> MessageService:
     return MessageService(session)
 
 MessageServiceDep = Annotated[MessageService, Depends(get_message_service)]
+
