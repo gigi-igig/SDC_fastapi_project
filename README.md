@@ -22,10 +22,10 @@ root/
 │   │   ├── chat.py        # Chat handling router
 │   │   ├── session.py     # Session management router
 │   │   ├── message.py     # Message management router
-│   ├── services/      # Application service layer
+│   ├── dependencies/      # Application service layer
 │   │   ├── chat_service.py
-│   │   ├── session_service.py
-│   │   ├── message_service.py
+│   │   ├── SessionData.py #session_service
+│   │   ├── MessageData.py # message_service
 │   ├── database/      # Data access layer (DAL)
 │   │   ├── session_dal.py
 │   │   ├── message_dal.py
